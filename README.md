@@ -87,12 +87,9 @@ und Kassabuch Devisen. Das Abgleich-Format ist mit FinanceFlow Desktop, Android 
 
 ### Bauen
 
-**GitHub Actions:** Jeder Push auf `main` testet und baut die EXE (Windows) und daraus das MSI (Ubuntu, wixl).
-Ein Tag `v*` erstellt ein Release mit MSI, EXE, PDFs und Smartphone-Version.
-
-```
-git tag v1.0.1 && git push origin v1.0.1      # vorher APP_VERSION in app/__init__.py erhöhen
-```
+**GitHub Actions:** Jeder Push auf `main` testet, baut die EXE (Windows) und daraus das MSI (Ubuntu, wixl) und
+veröffentlicht das Release `v<APP_VERSION>` mit MSI, EXE, PDFs und Smartphone-Version. Neue Version veröffentlichen =
+`APP_VERSION` in `app/__init__.py` erhöhen und pushen (ein Push mit gleicher Version aktualisiert das bestehende Release).
 
 **Windows:** `build.bat` → `dist\FinanceFlow-Schuldenberatung.exe`, mit installiertem WiX Toolset 3 auch das MSI.
 

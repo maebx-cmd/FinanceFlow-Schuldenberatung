@@ -64,10 +64,26 @@ jobs:
             dist/FinanceFlow-Schuldenberatung-*.msi
             dist/*.pdf
             dist/FinanceFlow-Schuldner.html
-      - name: Release (bei Tag v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Release v${{ env.VERSION }} erstellen bzw. aktualisieren
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          name: FinanceFlow Schuldenberatung ${{ env.VERSION }}
+          make_latest: true
+          body: |
+            **Installation:** `FinanceFlow-Schuldenberatung-${{ env.VERSION }}.msi` herunterladen und doppelklicken
+            (Windows 10/11, 64 Bit). Eine ältere Version wird automatisch ersetzt, die Daten bleiben erhalten.
+            Stille Installation: `msiexec /i FinanceFlow-Schuldenberatung-${{ env.VERSION }}.msi /qn`
+
+            | Datei | Inhalt |
+            |---|---|
+            | `FinanceFlow-Schuldenberatung-${{ env.VERSION }}.msi` | Installationspaket (Programm, Anleitungen, Smartphone-Version, Verknüpfungen) |
+            | `FinanceFlow-Schuldenberatung.exe` | Programm ohne Installation (eine Datei) |
+            | `FinanceFlow-Anleitung-Schuldner.pdf` | Anleitung für Schuldnerinnen und Schuldner in einfacher Sprache |
+            | `FinanceFlow-Handbuch-Schuldenberatung.pdf` | Handbuch für die Schuldenberatung |
+            | `FinanceFlow-Schuldner.html` | Smartphone-Version – online: https://maebx-cmd.github.io/FinanceFlow-Light/ |
           files: |
             dist/FinanceFlow-Schuldenberatung-*.msi
             dist/FinanceFlow-Schuldenberatung.exe
