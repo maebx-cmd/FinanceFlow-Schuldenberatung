@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="robots" content="noindex">
+<title>FinanceFlow – meine Schulden</title>
+<!--
+  FinanceFlow Schuldenberatung · Smartphone-Version für Schuldner:innen (eine einzige Datei, läuft nur im Browser).
+  Keine Verbindung ins Internet, keine Server. Daten: verschlüsselt im Browser (localStorage) und als Abgleich-Datei
+  *.ffsync (PBKDF2-HMAC-SHA256 600.000 / AES-256-GCM, AAD „financeflow-sync/1“) – identisch mit FinanceFlow Desktop,
+  Android und iOS. Die Schuldenberatung spielt die Datei mit „Datei des Schuldners einspielen“ ein.
+-->
+<style>
+:root{--blau:#0064D9;--blau2:#0A6ED1;--text:#1D2D3E;--grau:#556B82;--linie:#D5DADD;--grund:#F5F6F7;--weiss:#FFFFFF;
+--rot:#AA0808;--gruen:#256F3A;--orange:#E9730C;--hell:#EAF3FC;--radius:12px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--grund);color:var(--text);font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--weiss);border-bottom:1px solid var(--linie);display:flex;align-items:center;
+gap:8px;padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
+.logo{color:var(--blau);font-size:22px;line-height:1}
+.titel{font-weight:700;font-size:17px}.titel small{font-weight:400;color:var(--grau);font-size:13px;margin-left:4px}
+header .rechts{margin-left:auto;display:flex;gap:4px}
+.ikon{border:0;background:none;color:var(--blau);font-weight:600;font-size:14px;padding:8px 8px;border-radius:8px;white-space:nowrap}
+@media (max-width:440px){.titel small{display:none}}
+.ikon:active{background:var(--hell)}
+main{padding:14px 14px calc(96px + env(safe-area-inset-bottom));max-width:720px;margin:0 auto}
+h1{font-size:22px;margin:4px 0 4px}h2{font-size:17px;margin:0 0 8px}
+p{margin:0 0 10px}.sub{color:var(--grau);font-size:14px}
+.karte{background:var(--weiss);border:1px solid var(--linie);border-radius:var(--radius);padding:14px;margin:0 0 12px}
+.knopf{display:block;width:100%;border:1px solid var(--blau);background:var(--weiss);color:var(--blau);font-weight:600;
+padding:13px 14px;border-radius:10px;text-align:center;margin:8px 0}
+.knopf.haupt{background:var(--blau);color:#fff}.knopf.neg{border-color:var(--rot);color:var(--rot)}
+.knopf.flach{border-color:transparent;background:none}
+.knopf:disabled{opacity:.5}
+.zeilen>button{display:flex;width:100%;text-align:left;align-items:center;gap:10px;background:var(--weiss);border:1px solid var(--linie);
+border-radius:var(--radius);padding:12px 14px;margin:0 0 8px}
+.zeilen>button .li{flex:1;min-width:0}.zeilen .z1{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zeilen .z2{color:var(--grau);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.zeilen .re{text-align:right;font-weight:700;white-space:nowrap}.pfeil{color:var(--linie);font-size:20px}
+label{display:block;font-size:13px;color:var(--grau);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #89919A;border-radius:8px;background:#fff;font-size:16px}
+textarea{min-height:80px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--blau);outline-offset:0;border-color:var(--blau)}
+.check{display:flex;gap:10px;align-items:center;margin:14px 0 4px;color:var(--text);font-size:15px}
+.check input{width:22px;height:22px;flex:none}
+.zwei{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.kpi{background:var(--weiss);border:1px solid var(--linie);border-radius:var(--radius);padding:12px}
+.kpi .w{font-size:22px;font-weight:700}.kpi .l{font-size:12px;color:var(--grau)}
+.rot{color:var(--rot)}.gruen{color:var(--gruen)}
+.hinweis{background:var(--hell);border-left:4px solid var(--blau2);border-radius:8px;padding:10px 12px;margin:0 0 12px;font-size:15px}
+.warn{background:#FEF7F1;border-left-color:var(--orange)}.fehler{background:#FFEAF4;border-left-color:var(--rot)}
+.ok{background:#F1FDF6;border-left-color:var(--gruen)}
+.schritt{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--grund)}
+.schritt:last-child{border-bottom:0}
+.schritt .s{width:28px;height:28px;border-radius:50%;border:2px solid var(--linie);display:flex;align-items:center;justify-content:center;
+flex:none;font-weight:700;color:var(--grau)}
+.schritt.erledigt .s{border-color:var(--gruen);background:var(--gruen);color:#fff}
+.schritt .t{flex:1}.schritt button{border:0;background:none;color:var(--blau);font-weight:600;padding:6px}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--weiss);border-top:1px solid var(--linie);display:flex;
+padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;padding:8px 2px;font-size:12px;color:var(--grau);display:flex;flex-direction:column;
+align-items:center;gap:2px;border-radius:8px}
+nav button .i{font-size:20px;line-height:1}
+nav button.aktiv{color:var(--blau);font-weight:700}
+.verdeckt .betrag{filter:blur(7px)}
+.leer{text-align:center;color:var(--grau);padding:24px 8px}
+.punkte{display:flex;justify-content:center;gap:6px;margin:12px 0}
+.punkte i{width:9px;height:9px;border-radius:50%;background:var(--linie)}.punkte i.a{background:var(--blau)}
+.intro p{font-size:17px}
+.sperre{max-width:420px;margin:8vh auto 0}
+.verlauf{font-size:14px}.verlauf b{white-space:nowrap}.verlauf div{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--grund)}
+.zurueck{border:0;background:none;color:var(--blau);font-weight:600;padding:6px 0;margin-bottom:4px}
+[hidden]{display:none!important}
+.warten{position:fixed;inset:0;background:rgba(255,255,255,.85);display:flex;align-items:center;justify-content:center;z-index:20;
+font-weight:600;flex-direction:column;gap:10px}
+.rad{width:34px;height:34px;border:4px solid var(--linie);border-top-color:var(--blau);border-radius:50%;animation:d 1s linear infinite}
+@keyframes d{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo" aria-hidden="true">◆</span><span class="titel">FinanceFlow<small>meine Schulden</small></span>
+  <div class="rechts" id="kopfknoepfe" hidden>
+    <button class="ikon" id="b-verbergen" title="Beträge verbergen">◎ Verbergen</button>
+    <button class="ikon" id="b-sperren" title="Sperren">Sperren</button>
+  </div>
+</header>
+<main id="inhalt"></main>
+<nav id="navi" hidden>
+  <button data-s="start"><span class="i">⌂</span>Start</button>
+  <button data-s="glaeubiger"><span class="i">☰</span>Gläubiger</button>
+  <button data-s="schulden"><span class="i">€</span>Schulden</button>
+  <button data-s="datei"><span class="i">⇅</span>Datei</button>
+</nav>
+<div class="warten" id="warten" hidden><div class="rad"></div><div id="warten-text">Bitte warten …</div></div>
+<input type="file" id="dateiwahl" hidden>
+
+<script id="ff-krypto">
+/* ── Abgleich-Format *.ffsync (identisch zu app/abgleich/krypto.py) ─────────── */
+const FFSYNC = {FORMAT: "financeflow-sync", VERSION: 1, ITER: 600000, AAD: "financeflow-sync/1", MIN_PW: 12,
+  FEHLER: "Passwort falsch oder Datei beschädigt"};
+const _te = new TextEncoder(), _td = new TextDecoder();
+function b64(bytes) { let s = ""; const b = new Uint8Array(bytes); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+function unb64(s) { const t = atob(s); const b = new Uint8Array(t.length); for (let i = 0; i < t.length; i++) b[i] = t.charCodeAt(i); return b; }
+async function ffSchluessel(passwort, salt) {
+  const roh = await crypto.subtle.importKey("raw", _te.encode(passwort), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name: "PBKDF2", hash: "SHA-256", salt, iterations: FFSYNC.ITER}, roh,
+    {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]);
+}
+async function ffVerschluesseln(klartextBytes, key, salt, nonce) {
+  nonce = nonce || crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name: "AES-GCM", iv: nonce, additionalData: _te.encode(FFSYNC.AAD)}, key, klartextBytes);
+  return {format: FFSYNC.FORMAT, version: FFSYNC.VERSION,
+    kdf: {name: "PBKDF2-HMAC-SHA256", iterations: FFSYNC.ITER, salt: b64(salt)},
+    cipher: {name: "AES-256-GCM", nonce: b64(nonce)}, data: b64(ct)};
+}
+async function ffEntschluesseln(huelle, key) {
+  try {
+    const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: unb64(huelle.cipher.nonce), additionalData: _te.encode(FFSYNC.AAD)},
+      key, unb64(huelle.data));
+    return new Uint8Array(pt);
+  } catch (e) { throw new Error(FFSYNC.FEHLER); }
+}
+function ffHuellePruefen(h) {
+  if (!h || h.format !== FFSYNC.FORMAT || !h.kdf || !h.cipher || !h.data) throw new Error("Keine FinanceFlow-Abgleich-Datei.");
+  if (h.version > FFSYNC.VERSION) throw new Error("Die Datei stammt aus einer neueren App-Version. Bitte App aktualisieren.");
+  if (h.kdf.name !== "PBKDF2-HMAC-SHA256" || h.cipher.name !== "AES-256-GCM") throw new Error(FFSYNC.FEHLER);
+}
+async function ffDateiSchreiben(klartextString, passwort) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await ffSchluessel(passwort, salt);
+  return JSON.stringify(await ffVerschluesseln(_te.encode(klartextString), key, salt));
+}
+async function ffDateiLesen(dateiText, passwort) {
+  let h; try { h = JSON.parse(dateiText); } catch (e) { throw new Error("Keine FinanceFlow-Abgleich-Datei."); }
+  ffHuellePruefen(h);
+  const key = await ffSchluessel(passwort, unb64(h.kdf.salt));
+  return _td.decode(await ffEntschluesseln(h, key));
+}
+</script>
+
+<script>
+"use strict";
+/* ── Grundlagen ────────────────────────────────────────────────────────────── */
+const APP_VERSION = "1.0.0-web", EDITION = "Schuldner-Web", SPEICHER = "financeflow-schuldner-v1", MIN_APP_PW = 8;
+const $ = (s, w = document) => w.querySelector(s);
+const inhalt = $("#inhalt");
+let D = null;          // Finanzdaten wie im Abgleich: {Prisma-Modell: [Zeilen]}
+let META = null;       // {name, geraet, geaendert, geaendertAm, letzterExport, letzterImport, introGesehen}
+let KEY = null, SALT = null, SPEICHER_OK = true, VERDECKT = false, SEITE = "start";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const jetzt = () => { const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+const heute = () => jetzt().slice(0, 10);
+const datDe = s => s ? `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}` : "";
+const zeitDe = s => s ? `${datDe(s)} ${s.slice(11, 16)}` : "–";
+
+/* Geld in Cent (Ganzzahl) – nie Gleitkomma in den Daten */
+function centAus(text) {                       // "1.234,56" / "1234.56" / "-50" → Cent oder null
+  let t = String(text ?? "").trim().replace(/\s|€/g, "");
+  if (!t) return null;
+  const neg = t.startsWith("-") || t.startsWith("−"); t = t.replace(/^[-−+]/, "");
+  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  else if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+  if (!/^\d+(\.\d{0,2})?$/.test(t)) return NaN;
+  const [g, k = ""] = t.split(".");
+  const c = parseInt(g, 10) * 100 + parseInt((k + "00").slice(0, 2), 10);
+  return neg ? -c : c;
+}
+const centZuText = c => { const n = c < 0; c = Math.abs(c); return (n ? "-" : "") + Math.floor(c / 100) + "." + String(c % 100).padStart(2, "0"); };
+const centAusDaten = s => (s === null || s === undefined || s === "") ? 0 : centAus(String(s).replace(",", "."));
+function eur(c) {
+  const n = c < 0; c = Math.abs(c);
+  const g = String(Math.floor(c / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${n ? "−" : ""}${g},${String(c % 100).padStart(2, "0")} €`;
+}
+const fuerFeld = c => c === null || c === undefined ? "" : (c < 0 ? "-" : "") + eur(Math.abs(c)).replace(" €", "");
+/* Zinssatz: Eingabe in % (z. B. 6,9) → Datenwert als Anteil mit 6 Stellen ("0.069000") */
+function zinsAus(text) {
+  let t = String(text ?? "").trim().replace(",", ".").replace("%", "");
+  if (!t) return "0.000000";
+  if (!/^\d{1,3}(\.\d{0,4})?$/.test(t)) return null;
+  const [g, k = ""] = t.split(".");
+  const n = parseInt(g, 10) * 10000 + parseInt((k + "0000").slice(0, 4), 10);   // in 1/10000 % = 1/1000000 Anteil
+  return `${Math.floor(n / 1000000)}.${String(n % 1000000).padStart(6, "0")}`;
+}
+function zinsZuText(s) {
+  if (!s) return "0";
+  const [g, k = ""] = String(s).split(".");
+  const n = parseInt(g, 10) * 1000000 + parseInt((k + "000000").slice(0, 6), 10);
+  const ganz = Math.floor(n / 10000), rest = String(n % 10000).padStart(4, "0").replace(/0+$/, "");
+  return rest ? `${ganz},${rest}` : String(ganz);
+}
+/* IBAN: normalisieren und mit Prüfziffer (mod 97) prüfen */
+function ibanNorm(s) { return String(s ?? "").replace(/[\s-]/g, "").toUpperCase(); }
+function ibanGueltig(n) {
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(n)) return false;
+  const r = (n.slice(4) + n.slice(0, 4)).replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));
+  let m = 0; for (const ch of r) m = (m * 10 + +ch) % 97; return m === 1;
+}
+const ibanAnzeige = n => n ? n.replace(/(.{4})/g, "$1 ").trim() : "";
+
+/* ── Datenbestand ──────────────────────────────────────────────────────────── */
+const tab = m => (D[m] = D[m] || []);
+const naechsteId = m => tab(m).reduce((x, r) => Math.max(x, +r.id || 0), 0) + 1;
+const ohneLeere = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== ""));
+const glaeubiger = () => tab("Contact").filter(k => k.isActive !== 0 && k.isActive !== false)
+  .sort((a, b) => a.name.localeCompare(b.name, "de"));
+const schulden = () => tab("Liability").filter(l => !["GELOESCHT"].includes(l.status) && !l.deletedAt);
+const offen = l => l.status !== "BEZAHLT" && l.status !== "GELOESCHT";
+const kontakt = id => tab("Contact").find(k => k.id === id);
+function setzeEinstellung(key, value) {
+  const s = tab("Setting").find(x => x.key === key);
+  if (s) { s.value = value; s.updatedAt = jetzt(); }
+  else tab("Setting").push({id: naechsteId("Setting"), key, value, valueType: "string", updatedAt: jetzt()});
+}
+/* Unbezahlte Planzeilen einer geänderten Schuld verwerfen → FinanceFlow rechnet den Plan beim Einspielen neu */
+function planVerwerfen(lid) {
+  if (D.DebtRepaymentPlan) D.DebtRepaymentPlan = D.DebtRepaymentPlan.filter(p => p.liabilityId !== lid || p.paidAt);
+}
+function protokoll(action, entityType, entityId, neu) {
+  tab("AuditLog").push({id: naechsteId("AuditLog"), userId: "smartphone", action, entityType, entityId: String(entityId),
+    newValue: JSON.stringify(neu || {}), createdAt: jetzt()});
+}
+async function geaendert() {
+  META.geaendert = true; META.geaendertAm = jetzt();
+  await speichern();
+}
+
+/* ── Speichern im Browser (verschlüsselt mit dem App-Passwort) ─────────────── */
+async function speichern() {
+  if (!KEY) return;
+  const klar = _te.encode(JSON.stringify({meta: META, daten: D}));
+  const h = await ffVerschluesseln(klar, KEY, SALT);
+  try { localStorage.setItem(SPEICHER, JSON.stringify(h)); SPEICHER_OK = true; }
+  catch (e) { SPEICHER_OK = false; }
+}
+function gespeichert() { try { return localStorage.getItem(SPEICHER); } catch (e) { SPEICHER_OK = false; return null; } }
+
+async function warten(text, fn) {
+  $("#warten-text").textContent = text; $("#warten").hidden = false;
+  await new Promise(r => setTimeout(r, 30));
+  try { return await fn(); } finally { $("#warten").hidden = true; }
+}
+
+/* ── Anzeige-Gerüst ────────────────────────────────────────────────────────── */
+function zeige(seite, ...arg) {
+  SEITE = seite;
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("aktiv", b.dataset.s === seite.split(":")[0]));
+  const app = !!KEY;
+  $("#navi").hidden = !app; $("#kopfknoepfe").hidden = !app;
+  inhalt.innerHTML = "";
+  SEITEN[seite](...arg);
+  window.scrollTo(0, 0);
+}
+function el(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content; }
+function meldung(text, art = "") {
+  const m = el(`<div class="hinweis ${art}">${text}</div>`);
+  inhalt.prepend(m);
+  window.scrollTo(0, 0);
+}
+function knopf(id, fn) { const b = document.getElementById(id); if (b) b.onclick = fn; }
+const wert = id => document.getElementById(id).value;
+
+/* ── Seiten ────────────────────────────────────────────────────────────────── */
+const INTRO = [
+  ["Willkommen!", ["Mit dieser Seite hast du alle deine Schulden an einem Ort – direkt auf deinem Handy.",
+    "Deine Daten bleiben auf diesem Handy. Sie werden <b>nicht</b> ins Internet geschickt.",
+    "Deine Schuldenberatung bekommt sie nur, wenn <b>du</b> ihr eine Datei gibst."]],
+  ["Schritt 1: Gläubiger", ["Ein <b>Gläubiger</b> ist jemand, dem du Geld schuldest: eine Bank, ein Inkasso-Büro, die Handy-Firma, der Vermieter …",
+    "Tipp unten auf <b>„Gläubiger“</b> und dann auf <b>„+ Gläubiger anlegen“</b>. Trag den Namen ein und – wenn du sie hast – Adresse und IBAN. Dann <b>„Speichern“</b>.",
+    "Mach das für <b>jeden</b> Gläubiger einmal."]],
+  ["Schritt 2: Schulden", ["Danach tippst du unten auf <b>„Schulden“</b> und dann auf <b>„+ Schuld erfassen“</b>.",
+    "Wähl den Gläubiger, gib der Schuld einen Namen (z. B. „Kredit Auto“) und trag ein, wie viel <b>jetzt noch offen</b> ist. Der Betrag steht meist im letzten Brief.",
+    "Zahlst du Raten? Dann trag die Rate und den Tag im Monat ein. Du weißt etwas nicht? Lass es leer – deine Beratung hilft dir."]],
+  ["Schritt 3: Datei an die Beratung", ["Unten auf <b>„Datei“</b> tippen und <b>„Datei für die Schuldenberatung erstellen“</b>.",
+    "Denk dir ein Passwort aus (mindestens <b>12 Zeichen</b>) und schick die Datei deiner Beratung, z. B. per E-Mail.",
+    "Das Passwort sagst du <b>getrennt</b> davon – am besten am Telefon.",
+    "Die Datei ist auch deine <b>Sicherung</b>: Mach regelmäßig eine, dann ist nichts verloren, wenn das Handy kaputt geht."]],
+];
+
+const SEITEN = {
+  /* Erster Start: Name + App-Passwort */
+  einrichten() {
+    inhalt.append(el(`<div class="sperre">
+      <h1>Willkommen</h1>
+      <p class="sub">Hier erfasst du deine Schulden für die Schuldenberatung – auf dem Handy, ohne Internet.</p>
+      <div class="karte">
+        <label for="e-name">Dein Name (steht später in der Datei, freiwillig)</label><input id="e-name" autocomplete="name">
+        <label for="e-pw">Passwort für diese Seite (mindestens ${MIN_APP_PW} Zeichen)</label><input id="e-pw" type="password" autocomplete="new-password">
+        <label for="e-pw2">Passwort wiederholen</label><input id="e-pw2" type="password" autocomplete="new-password">
+        <p class="sub" style="margin-top:10px">Mit dem Passwort werden deine Daten auf dem Handy verschlüsselt. Merke es dir gut.</p>
+        <button class="knopf haupt" id="e-ok">Los geht's</button>
+      </div>
+      <div class="karte"><h2>Du hast schon eine Datei?</h2>
+        <p class="sub">Zum Beispiel von deiner Schuldenberatung oder eine Sicherung von früher.</p>
+        <button class="knopf" id="e-datei">Datei öffnen …</button></div></div>`));
+    knopf("e-ok", async () => {
+      const pw = wert("e-pw");
+      if (pw.length < MIN_APP_PW) return meldung(`Das Passwort muss mindestens ${MIN_APP_PW} Zeichen haben.`, "fehler");
+      if (pw !== wert("e-pw2")) return meldung("Die Passwörter stimmen nicht überein.", "fehler");
+      await warten("Wird eingerichtet …", async () => {
+        SALT = crypto.getRandomValues(new Uint8Array(16)); KEY = await ffSchluessel(pw, SALT);
+        D = D || {}; META = META || {geraet: "Smartphone"};
+        const name = wert("e-name").trim();
+        if (name) { META.name = name; setzeEinstellung("owner_name", name); }
+        await speichern();
+      });
+      META.introGesehen ? zeige("start") : zeige("intro", 0);
+    });
+    knopf("e-datei", () => dateiOeffnen(true));
+  },
+
+  sperre() {
+    inhalt.append(el(`<div class="sperre"><h1>Entsperren</h1><p class="sub">Bitte dein Passwort eingeben.</p>
+      <div class="karte"><label for="s-pw">Passwort</label><input id="s-pw" type="password" autocomplete="current-password">
+      <button class="knopf haupt" id="s-ok">Entsperren</button></div>
+      <div class="karte"><h2>Passwort vergessen?</h2>
+        <p class="sub">Ohne Passwort lassen sich die Daten auf diesem Handy nicht mehr öffnen. Hast du eine Datei (Sicherung oder von der Beratung), kannst du neu beginnen und sie öffnen.</p>
+        <button class="knopf neg" id="s-neu">Neu beginnen (Daten auf diesem Handy löschen)</button></div></div>`));
+    const ok = async () => {
+      const h = JSON.parse(gespeichert());
+      const salt = unb64(h.kdf.salt);
+      try {
+        await warten("Wird entsperrt …", async () => {
+          const key = await ffSchluessel(wert("s-pw"), salt);
+          const inhaltObj = JSON.parse(_td.decode(await ffEntschluesseln(h, key)));
+          KEY = key; SALT = salt; D = inhaltObj.daten; META = inhaltObj.meta;
+        });
+        zeige("start");
+      } catch (e) { $("#s-pw").value = ""; meldung("Das Passwort ist falsch.", "fehler"); }
+    };
+    knopf("s-ok", ok); $("#s-pw").onkeydown = e => e.key === "Enter" && ok(); $("#s-pw").focus();
+    knopf("s-neu", () => {
+      if (!confirm("Wirklich alle Daten auf diesem Handy löschen? Das kann nicht rückgängig gemacht werden.")) return;
+      try { localStorage.removeItem(SPEICHER); } catch (e) {}
+      D = null; META = null; zeige("einrichten");
+    });
+  },
+
+  intro(i = 0) {
+    const [t, abs] = INTRO[i], letzte = i === INTRO.length - 1;
+    inhalt.append(el(`<div class="karte intro"><p class="sub">Einführung · ${i + 1} von ${INTRO.length}</p><h1>${t}</h1>
+      ${abs.map(a => `<p>${a}</p>`).join("")}
+      <div class="punkte">${INTRO.map((_, k) => `<i class="${k === i ? "a" : ""}"></i>`).join("")}</div>
+      ${letzte ? `<button class="knopf haupt" id="i-los">Jetzt ersten Gläubiger anlegen</button><button class="knopf" id="i-ende">Zur Startseite</button>`
+               : `<button class="knopf haupt" id="i-weiter">Weiter</button>`}
+      ${i > 0 ? `<button class="knopf flach" id="i-zurueck">Zurück</button>` : `<button class="knopf flach" id="i-ende">Später ansehen</button>`}</div>`));
+    const fertig = async z => { META.introGesehen = true; await speichern(); z === "neu" ? zeige("glaeubiger_form", null) : zeige("start"); };
+    knopf("i-weiter", () => zeige("intro", i + 1)); knopf("i-zurueck", () => zeige("intro", i - 1));
+    knopf("i-los", () => fertig("neu")); knopf("i-ende", () => fertig());
+  },
+
+  start() {
+    const ls = schulden().filter(offen), gs = glaeubiger();
+    const summe = ls.reduce((s, l) => s + centAusDaten(l.currentBalance), 0);
+    const raten = ls.filter(l => l.repaymentType !== "OPEN").reduce((s, l) => s + centAusDaten(l.repaymentValue), 0);
+    const schritte = [["glaeubiger", "Gläubiger anlegen", gs.length > 0], ["schulden", "Schulden erfassen", ls.length > 0],
+      ["datei", "Datei für die Schuldenberatung erstellen", !!META.letzterExport]];
+    const tage = META.letzterExport ? (Date.now() - new Date(META.letzterExport).getTime()) / 864e5 : null;
+    inhalt.append(el(`<h1>${META.name ? "Hallo, " + esc(META.name.split(" ")[0]) + "!" : "Hallo!"}</h1>
+      <p class="sub">Deine Schulden auf einen Blick.</p>
+      ${!SPEICHER_OK ? `<div class="hinweis warn">Dieser Browser kann nicht dauerhaft speichern. Erstell bitte regelmäßig unter „Datei“ eine Datei – sonst sind die Eingaben beim Schließen weg.</div>` : ""}
+      ${META.geaendert && (tage === null || tage > 7) && (gs.length || ls.length) ? `<div class="hinweis warn">Du hast Änderungen, die noch in keiner Datei sind. Tipp auf „Datei“ und erstell eine – sie ist auch deine Sicherung.</div>` : ""}
+      <div class="kpis">
+        <div class="kpi"><div class="l">Noch offen</div><div class="w rot betrag">${eur(summe)}</div></div>
+        <div class="kpi"><div class="l">Raten pro Monat</div><div class="w betrag">${eur(raten)}</div></div>
+        <div class="kpi"><div class="l">Gläubiger</div><div class="w">${gs.length}</div></div>
+        <div class="kpi"><div class="l">Offene Schulden</div><div class="w">${ls.length}</div></div>
+      </div>
+      <div class="karte"><h2>Erste Schritte</h2>${schritte.map(([z, t, ok], i) =>
+        `<div class="schritt ${ok ? "erledigt" : ""}"><span class="s">${ok ? "✓" : i + 1}</span><span class="t">${t}</span><button data-z="${z}">Öffnen</button></div>`).join("")}</div>
+      <div class="karte"><h2>Datei</h2><p class="sub">Letzte Datei erstellt: ${zeitDe(META.letzterExport)}<br>Letzte Datei eingespielt: ${zeitDe(META.letzterImport)}</p></div>
+      <button class="knopf" id="st-intro">Einführung noch einmal ansehen</button>`));
+    inhalt.querySelectorAll(".schritt button").forEach(b => b.onclick = () => zeige(b.dataset.z));
+    knopf("st-intro", () => zeige("intro", 0));
+  },
+
+  glaeubiger() {
+    const gs = glaeubiger();
+    inhalt.append(el(`<h1>Gläubiger</h1><p class="sub">Alle, denen du Geld schuldest.</p>
+      <button class="knopf haupt" id="g-neu">+ Gläubiger anlegen</button>
+      <div class="zeilen">${gs.length ? gs.map(k => {
+        const n = schulden().filter(l => l.contactId === k.id && offen(l));
+        const s = n.reduce((x, l) => x + centAusDaten(l.currentBalance), 0);
+        return `<button data-id="${k.id}"><span class="li"><div class="z1">${esc(k.name)}</div>
+          <div class="z2">${esc([k.city, n.length ? n.length + (n.length === 1 ? " Schuld" : " Schulden") : "noch keine Schuld"].filter(Boolean).join(" · "))}</div></span>
+          <span class="re betrag">${n.length ? eur(s) : ""}</span><span class="pfeil">›</span></button>`; }).join("")
+        : `<div class="leer">Noch keine Gläubiger.<br>Tipp auf „+ Gläubiger anlegen“.</div>`}</div>`));
+    knopf("g-neu", () => zeige("glaeubiger_form", null));
+    inhalt.querySelectorAll(".zeilen button").forEach(b => b.onclick = () => zeige("glaeubiger_form", +b.dataset.id));
+  },
+
+  glaeubiger_form(id) {
+    const k = id ? kontakt(id) : {};
+    inhalt.append(el(`<button class="zurueck" id="f-zurueck">‹ Gläubiger</button>
+      <h1>${id ? esc(k.name) : "Neuer Gläubiger"}</h1>
+      <div class="karte">
+        <label for="k-name">Name *</label><input id="k-name" value="${esc(k.name)}" placeholder="z. B. Bank Austria">
+        <label for="k-adr">Adresse</label><input id="k-adr" value="${esc(k.address)}" autocomplete="off">
+        <div class="zwei"><div><label for="k-plz">PLZ</label><input id="k-plz" inputmode="numeric" value="${esc(k.zipCode)}"></div>
+          <div><label for="k-ort">Ort</label><input id="k-ort" value="${esc(k.city)}"></div></div>
+        <label for="k-tel">Telefon</label><input id="k-tel" type="tel" value="${esc(k.phone)}">
+        <label for="k-mail">E-Mail</label><input id="k-mail" type="email" value="${esc(k.email)}">
+        <label for="k-iban">IBAN (steht oft auf dem Zahlschein)</label><input id="k-iban" value="${esc(ibanAnzeige(k.iban))}" autocapitalize="characters">
+        <label for="k-not">Notizen (z. B. Aktenzahl, ursprüngliche Firma)</label><textarea id="k-not">${esc(k.notes)}</textarea>
+        <button class="knopf haupt" id="k-ok">Speichern</button>
+        ${id ? `<button class="knopf neg" id="k-weg">Gläubiger löschen</button>` : ""}
+      </div>`));
+    knopf("f-zurueck", () => zeige("glaeubiger"));
+    knopf("k-ok", async () => {
+      const name = wert("k-name").trim(), iban = ibanNorm(wert("k-iban")), mail = wert("k-mail").trim();
+      if (!name) return meldung("Bitte den Namen eintragen.", "fehler");
+      if (iban && !ibanGueltig(iban)) return meldung("Die IBAN stimmt nicht. Bitte noch einmal genau abschreiben – oder leer lassen.", "fehler");
+      if (mail && !mail.includes("@")) return meldung("Die E-Mail-Adresse stimmt nicht.", "fehler");
+      const daten = {name, address: wert("k-adr").trim(), zipCode: wert("k-plz").trim(), city: wert("k-ort").trim(),
+        phone: wert("k-tel").trim(), email: mail, iban, notes: wert("k-not").trim()};
+      if (id) {
+        for (const f of ["address", "zipCode", "city", "phone", "email", "iban", "notes"]) if (!daten[f]) delete k[f];
+        Object.assign(k, ohneLeere(daten)); protokoll("UPDATE", "Contact", id, {name});
+      } else {
+        const neu = ohneLeere({id: naechsteId("Contact"), ...daten, role: "KREDITOR", country: "Österreich",
+          correctionMinutes: 0, isActive: 1, createdAt: jetzt()});
+        tab("Contact").push(neu); protokoll("CREATE", "Contact", neu.id, {name});
+      }
+      await geaendert();
+      zeige("glaeubiger");
+      meldung(`„${esc(name)}“ gespeichert.${id ? "" : " Leg jetzt den nächsten Gläubiger an – oder erfasse unter „Schulden“ die Schuld."}`, "ok");
+    });
+    knopf("k-weg", async () => {
+      if (schulden().some(l => l.contactId === id && offen(l)))
+        return meldung("Dieser Gläubiger hat noch offene Schulden. Lösch zuerst die Schulden.", "fehler");
+      if (!confirm(`„${k.name}“ löschen?`)) return;
+      k.isActive = 0; protokoll("SOFT_DELETE", "Contact", id, {name: k.name});
+      await geaendert(); zeige("glaeubiger"); meldung("Gläubiger gelöscht.", "ok");
+    });
+  },
+
+  schulden() {
+    const ls = schulden().sort((a, b) => (offen(b) - offen(a)) || centAusDaten(b.currentBalance) - centAusDaten(a.currentBalance));
+    const summe = ls.filter(offen).reduce((s, l) => s + centAusDaten(l.currentBalance), 0);
+    inhalt.append(el(`<h1>Schulden</h1><p class="sub">Noch offen: <b class="rot betrag">${eur(summe)}</b></p>
+      ${glaeubiger().length ? "" : `<div class="hinweis warn">Leg zuerst deine Gläubiger an. Danach kannst du hier die Schulden erfassen.</div>`}
+      <button class="knopf haupt" id="v-neu">${glaeubiger().length ? "+ Schuld erfassen" : "Zuerst Gläubiger anlegen"}</button>
+      <div class="zeilen">${ls.length ? ls.map(l => {
+        const r = l.repaymentType === "OPEN" || !l.repaymentValue ? "keine feste Rate" : `Rate ${eur(centAusDaten(l.repaymentValue))}${l.dueDay ? ", am " + l.dueDay + "." : ""}`;
+        return `<button data-id="${l.id}"><span class="li"><div class="z1">${esc((kontakt(l.contactId) || {}).name || "?")} – ${esc(l.name)}</div>
+          <div class="z2">${offen(l) ? `<span class="betrag">${esc(r)}</span>` : "bezahlt"}</div></span>
+          <span class="re ${offen(l) ? "rot" : "gruen"} betrag">${eur(centAusDaten(l.currentBalance))}</span><span class="pfeil">›</span></button>`; }).join("")
+        : `<div class="leer">Noch keine Schulden erfasst.</div>`}</div>`));
+    knopf("v-neu", () => glaeubiger().length ? zeige("schuld_form", null) : zeige("glaeubiger_form", null));
+    inhalt.querySelectorAll(".zeilen button").forEach(b => b.onclick = () => zeige("schuld_form", +b.dataset.id));
+  },
+
+  schuld_form(id) {
+    const l = id ? tab("Liability").find(x => x.id === id) : {repaymentType: "FIX", isBankruptcyEligible: 1};
+    const typ = l.repaymentType || "FIX", fremderTyp = !["FIX", "OPEN"].includes(typ);
+    const korr = id ? tab("LiabilityCorrection").filter(c => c.liabilityId === id)
+      .sort((a, b) => (b.correctionDate + b.id).localeCompare(a.correctionDate + a.id)) : [];
+    inhalt.append(el(`<button class="zurueck" id="f-zurueck">‹ Schulden</button>
+      <h1>${id ? esc(l.name) : "Neue Schuld"}</h1>
+      ${id ? `<div class="kpis"><div class="kpi"><div class="l">Noch offen</div><div class="w rot betrag">${eur(centAusDaten(l.currentBalance))}</div></div>
+        <div class="kpi"><div class="l">Am Anfang</div><div class="w betrag">${eur(centAusDaten(l.originalBalance))}</div></div></div>
+        ${offen(l) ? `<button class="knopf haupt" id="v-brief">Neuer Betrag (Brief, Zahlung …)</button>` : ""}` : ""}
+      <div class="karte">
+        <label for="v-g">Gläubiger *</label><select id="v-g"><option value="">– bitte wählen –</option>
+          ${glaeubiger().concat(id && !glaeubiger().some(k => k.id === l.contactId) && kontakt(l.contactId) ? [kontakt(l.contactId)] : [])
+            .map(k => `<option value="${k.id}" ${k.id === l.contactId ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</select>
+        <label for="v-name">Bezeichnung * (z. B. „Kredit Auto“, „Handy-Rechnung“)</label><input id="v-name" value="${esc(l.name)}">
+        ${id ? "" : `<label for="v-saldo">Wie viel ist jetzt noch offen? (€) *</label><input id="v-saldo" inputmode="decimal" placeholder="z. B. 1.250,00">`}
+        <label for="v-typ">Zahlst du Raten?</label>
+        <select id="v-typ" ${fremderTyp ? "disabled" : ""}>
+          ${fremderTyp ? `<option>von der Beratung festgelegt</option>` : `<option value="FIX" ${typ === "FIX" ? "selected" : ""}>Ja, eine feste Rate</option>
+          <option value="OPEN" ${typ === "OPEN" ? "selected" : ""}>Nein / keine feste Rate</option>`}</select>
+        <div id="v-ratenfelder" class="zwei">
+          <div><label for="v-rate">Rate pro Monat (€)</label><input id="v-rate" inputmode="decimal" value="${esc(fuerFeld(l.repaymentValue ? centAusDaten(l.repaymentValue) : null))}"></div>
+          <div><label for="v-tag">Tag im Monat (1–28)</label><input id="v-tag" inputmode="numeric" value="${esc(l.dueDay)}"></div></div>
+        <label for="v-zins">Zinsen pro Jahr in % (weißt du es nicht: leer lassen)</label><input id="v-zins" inputmode="decimal" value="${l.interestRate && zinsZuText(l.interestRate) !== "0" ? zinsZuText(l.interestRate) : ""}">
+        <label for="v-iban">IBAN für Zahlungen (leer = IBAN des Gläubigers)</label><input id="v-iban" value="${esc(ibanAnzeige(l.iban))}" autocapitalize="characters">
+        <label class="check"><input type="checkbox" id="v-kf" ${l.isBankruptcyEligible === 0 || l.isBankruptcyEligible === false ? "" : "checked"}>Im Privatkonkurs berücksichtigen (Haken lassen – die Beratung ändert ihn, wenn nötig)</label>
+        <label for="v-not">Notizen (Vertragsnummer, Aktenzahl, Telefonate …)</label><textarea id="v-not">${esc(l.notes)}</textarea>
+        <button class="knopf haupt" id="v-ok">Speichern</button>
+        ${id && offen(l) ? `<button class="knopf" id="v-bez">Ist ganz bezahlt</button>` : ""}
+        ${id && !offen(l) ? `<button class="knopf" id="v-reakt">Doch nicht bezahlt (wieder offen)</button>` : ""}
+        ${id ? `<button class="knopf neg" id="v-weg">Schuld löschen</button>` : ""}
+      </div>
+      ${korr.length ? `<div class="karte"><h2>Verlauf</h2><div class="verlauf">${korr.map(c => `<div><span>${datDe(c.correctionDate)} · ${esc(KORR_NAMEN[c.correctionType] || c.correctionType)}${c.description ? "<br><span class='sub'>" + esc(c.description) + "</span>" : ""}</span>
+        <b class="betrag">${centAusDaten(c.amountChange) > 0 ? "+" : ""}${eur(centAusDaten(c.amountChange))}</b></div>`).join("")}</div>
+        <button class="knopf flach" id="v-korrweg">Letzten Eintrag rückgängig machen</button></div>` : ""}`));
+    const ratenSichtbar = () => $("#v-ratenfelder").hidden = !fremderTyp && wert("v-typ") === "OPEN";
+    $("#v-typ").onchange = ratenSichtbar; ratenSichtbar();
+    knopf("f-zurueck", () => zeige("schulden"));
+    knopf("v-brief", () => zeige("korrektur", id));
+    knopf("v-ok", async () => {
+      const cid = +wert("v-g"), name = wert("v-name").trim(), iban = ibanNorm(wert("v-iban"));
+      const zins = zinsAus(wert("v-zins")), rate = centAus(wert("v-rate")), tag = wert("v-tag").trim();
+      const typNeu = fremderTyp ? typ : wert("v-typ");
+      if (!cid) return meldung("Bitte den Gläubiger auswählen.", "fehler");
+      if (!name) return meldung("Bitte eine Bezeichnung eintragen.", "fehler");
+      if (zins === null) return meldung("Die Zinsen bitte als Zahl eintragen, z. B. 6,9.", "fehler");
+      if (Number.isNaN(rate) || (rate !== null && rate < 0)) return meldung("Die Rate bitte als Betrag eintragen, z. B. 50,00.", "fehler");
+      if (tag && !(/^\d+$/.test(tag) && +tag >= 1 && +tag <= 28)) return meldung("Der Tag im Monat muss zwischen 1 und 28 liegen.", "fehler");
+      if (iban && !ibanGueltig(iban)) return meldung("Die IBAN stimmt nicht. Bitte genau abschreiben – oder leer lassen.", "fehler");
+      const felder = {contactId: cid, name, interestRate: zins, interestType: l.interestType || "FIX", repaymentType: typNeu,
+        repaymentValue: typNeu === "OPEN" ? null : (rate === null ? null : centZuText(rate)), dueDay: tag ? +tag : null,
+        isBankruptcyEligible: $("#v-kf").checked ? 1 : 0, iban: iban || null, notes: wert("v-not").trim() || null, updatedAt: jetzt()};
+      if (id) {
+        Object.assign(l, felder);
+        for (const k of Object.keys(l)) if (l[k] === null) delete l[k];
+        planVerwerfen(id); protokoll("UPDATE", "Liability", id, {name});
+      } else {
+        const saldo = centAus(wert("v-saldo"));
+        if (saldo === null || Number.isNaN(saldo) || saldo < 0) return meldung("Bitte eintragen, wie viel noch offen ist, z. B. 1.250,00.", "fehler");
+        const neu = ohneLeere({id: naechsteId("Liability"), ...felder, originalBalance: centZuText(saldo), currentBalance: centZuText(saldo),
+          allowAvalanche: 0, isPaymentPlan: 0, paymentPlanInterval: 1, status: "OFFEN", correctionMinutes: 0, version: 1,
+          isInAbschoepfung: 0, createdAt: jetzt()});
+        tab("Liability").push(neu); protokoll("CREATE", "Liability", neu.id, {name, balance: centZuText(saldo)});
+      }
+      await geaendert(); zeige("schulden");
+      meldung(`„${esc(name)}“ gespeichert.`, "ok");
+    });
+    knopf("v-bez", async () => {
+      if (!confirm("Ist diese Schuld ganz bezahlt?")) return;
+      l.status = "BEZAHLT"; l.updatedAt = jetzt(); protokoll("MARK_DONE", "Liability", id);
+      await geaendert(); zeige("schulden");
+    });
+    knopf("v-reakt", async () => {
+      l.status = "OFFEN"; l.updatedAt = jetzt(); planVerwerfen(id); protokoll("REACTIVATE", "Liability", id);
+      await geaendert(); zeige("schuld_form", id);
+    });
+    knopf("v-weg", async () => {
+      const hist = tab("LiabilityCorrection").some(c => c.liabilityId === id) || tab("DebtRepaymentPlan").some(p => p.liabilityId === id && p.paidAt);
+      if (!confirm(`„${l.name}“ löschen?`)) return;
+      if (hist) { l.status = "GELOESCHT"; l.updatedAt = jetzt(); protokoll("SOFT_DELETE", "Liability", id); }
+      else { D.Liability = tab("Liability").filter(x => x.id !== id); if (D.DebtRepaymentPlan) D.DebtRepaymentPlan = D.DebtRepaymentPlan.filter(p => p.liabilityId !== id);
+        protokoll("DELETE", "Liability", id); }
+      await geaendert(); zeige("schulden"); meldung("Schuld gelöscht.", "ok");
+    });
+    knopf("v-korrweg", async () => {
+      const c = korr[0];
+      if (tab("DebtRepaymentPlan").some(p => p.paidCorrectionId === c.id) || c.abschoepfungsRateId)
+        return meldung("Dieser Eintrag stammt von der Schuldenberatung und kann nur dort rückgängig gemacht werden.", "warn");
+      if (!confirm(`Eintrag vom ${datDe(c.correctionDate)} (${eur(centAusDaten(c.amountChange))}) rückgängig machen?`)) return;
+      l.currentBalance = c.amountBefore; l.updatedAt = jetzt();
+      D.LiabilityCorrection = tab("LiabilityCorrection").filter(x => x.id !== c.id);
+      planVerwerfen(id); protokoll("DELETE_CORRECTION", "LiabilityCorrection", c.id, {liabilityId: id});
+      await geaendert(); zeige("schuld_form", id);
+    });
+  },
+
+  korrektur(id) {
+    const l = tab("Liability").find(x => x.id === id), alt = centAusDaten(l.currentBalance);
+    inhalt.append(el(`<button class="zurueck" id="f-zurueck">‹ ${esc(l.name)}</button>
+      <h1>Neuer Betrag</h1><p class="sub">Bisher offen: <b class="betrag">${eur(alt)}</b></p>
+      <div class="karte">
+        <label for="k-art">Was ist passiert?</label><select id="k-art">
+          ${Object.entries(KORR_AUSWAHL).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select>
+        <label for="k-neu">Wie viel ist jetzt noch offen? (€)</label><input id="k-neu" inputmode="decimal" placeholder="Betrag aus dem Brief">
+        <p class="sub" id="k-diff"></p>
+        <label for="k-dat">Datum (z. B. vom Brief)</label><input id="k-dat" type="date" value="${heute()}">
+        <label for="k-txt">Beschreibung</label><input id="k-txt" placeholder="z. B. Brief vom 3. November">
+        <button class="knopf haupt" id="k-ok">Speichern</button></div>`));
+    knopf("f-zurueck", () => zeige("schuld_form", id));
+    $("#k-neu").oninput = () => { const n = centAus(wert("k-neu"));
+      $("#k-diff").innerHTML = n === null || Number.isNaN(n) ? "" : `Änderung: <b>${n - alt > 0 ? "+" : ""}${eur(n - alt)}</b>`; };
+    knopf("k-ok", async () => {
+      const n = centAus(wert("k-neu"));
+      if (n === null || Number.isNaN(n) || n < 0) return meldung("Bitte den neuen offenen Betrag eintragen, z. B. 980,50.", "fehler");
+      if (n === alt) return meldung("Der Betrag ist gleich geblieben – es gibt nichts zu speichern.", "warn");
+      const c = {id: naechsteId("LiabilityCorrection"), liabilityId: id, correctionType: wert("k-art"), amountBefore: centZuText(alt),
+        amountChange: centZuText(n - alt), amountAfter: centZuText(n), description: wert("k-txt").trim() || "",
+        correctionDate: wert("k-dat") || heute(), createdAt: jetzt()};
+      tab("LiabilityCorrection").push(c);
+      l.currentBalance = centZuText(n); l.updatedAt = jetzt();
+      if (n === 0 && confirm("Der offene Betrag ist jetzt 0 €. Als ganz bezahlt markieren?")) l.status = "BEZAHLT";
+      planVerwerfen(id); protokoll("CORRECT", "Liability", id, {correctionType: c.correctionType, change: c.amountChange, correctionId: c.id});
+      await geaendert(); zeige("schuld_form", id); meldung("Gespeichert.", "ok");
+    });
+  },
+
+  datei() {
+    inhalt.append(el(`<h1>Datei</h1><p class="sub">Daten an die Schuldenberatung geben – und Sicherung für dich.</p>
+      <div class="karte"><h2>Datei für die Schuldenberatung</h2>
+        <p>Die Datei enthält alle deine Gläubiger und Schulden. Sie wird mit einem Passwort verschlüsselt.</p>
+        <label for="d-ger">Absender (wird der Beratung angezeigt)</label><input id="d-ger" value="${esc(META.geraet || "Smartphone")}">
+        <label for="d-pw">Passwort für die Datei (mindestens 12 Zeichen)</label><input id="d-pw" type="password" autocomplete="new-password">
+        <label for="d-pw2">Passwort wiederholen</label><input id="d-pw2" type="password" autocomplete="new-password">
+        <button class="knopf haupt" id="d-exp">Datei erstellen und senden</button>
+        <p class="sub">Schick die Datei z. B. per E-Mail. Das Passwort sagst du der Beratung <b>getrennt</b> – am besten am Telefon. Letzte Datei: ${zeitDe(META.letzterExport)}</p></div>
+      <div class="karte"><h2>Datei öffnen</h2>
+        <p>Eine Datei von deiner Schuldenberatung oder eine Sicherung von dir einspielen. Sie <b>ersetzt</b> die Daten auf diesem Handy.</p>
+        <button class="knopf" id="d-imp">Datei öffnen …</button><p class="sub">Letzte eingespielt: ${zeitDe(META.letzterImport)}</p></div>
+      <div class="karte"><h2>Zugang</h2>
+        <label for="z-alt">Bisheriges Passwort</label><input id="z-alt" type="password" autocomplete="current-password">
+        <label for="z-neu">Neues Passwort (mindestens ${MIN_APP_PW} Zeichen)</label><input id="z-neu" type="password" autocomplete="new-password">
+        <button class="knopf" id="z-ok">Passwort ändern</button>
+        <button class="knopf neg" id="z-weg">Alle Daten auf diesem Handy löschen</button></div>
+      <p class="sub" style="text-align:center">FinanceFlow Schuldenberatung · Smartphone-Version ${APP_VERSION}</p>`));
+    knopf("d-exp", dateiErstellen);
+    knopf("d-imp", () => dateiOeffnen(false));
+    knopf("z-ok", async () => {
+      const neu = wert("z-neu");
+      if (neu.length < MIN_APP_PW) return meldung(`Das neue Passwort muss mindestens ${MIN_APP_PW} Zeichen haben.`, "fehler");
+      try {
+        await warten("Passwort wird geändert …", async () => {
+          const h = JSON.parse(gespeichert());
+          await ffEntschluesseln(h, await ffSchluessel(wert("z-alt"), unb64(h.kdf.salt)));
+          SALT = crypto.getRandomValues(new Uint8Array(16)); KEY = await ffSchluessel(neu, SALT); await speichern();
+        });
+        zeige("datei"); meldung("Passwort geändert.", "ok");
+      } catch (e) { meldung("Das bisherige Passwort ist falsch.", "fehler"); }
+    });
+    knopf("z-weg", () => {
+      if (!confirm("Wirklich ALLE Daten auf diesem Handy löschen? Hast du vorher eine Datei erstellt?")) return;
+      try { localStorage.removeItem(SPEICHER); } catch (e) {}
+      KEY = null; D = null; META = null; zeige("einrichten");
+    });
+  },
+};
+
+const KORR_AUSWAHL = {SALDOANPASSUNG: "Neuer Kontostand / Brief", RATENZAHLUNG: "Ich habe etwas bezahlt", ZINSNACHTRAG: "Zinsen dazu",
+  INKASSOKOSTEN: "Mahn-/Inkassokosten dazu", GERICHTSKOSTEN: "Gerichtskosten dazu",
+  ERLASS: "Teil der Schuld erlassen", SONSTIG: "Etwas anderes"};
+const KORR_NAMEN = {...KORR_AUSWAHL, ZAHLUNGSPLANUMWANDLUNG: "Umwandlung in Zahlungsplan", ANPASSUNG_TAGSATZUNG: "Anpassung Tagsatzung",
+  ABSCHOEPFUNG: "Abschöpfung", SALDOANPASSUNG: "Saldoanpassung"};
+
+/* ── Abgleich-Datei ────────────────────────────────────────────────────────── */
+function dateiname(geraet) {
+  const p = n => String(n).padStart(2, "0"), d = new Date();
+  const g = (geraet || "Smartphone").normalize("NFKD").replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "Smartphone";
+  return `FinanceFlow-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}-${g}.ffsync`;
+}
+async function dateiErstellen() {
+  const pw = wert("d-pw"), geraet = wert("d-ger").trim() || "Smartphone";
+  if (pw.length < FFSYNC.MIN_PW) return meldung(`Das Passwort für die Datei muss mindestens ${FFSYNC.MIN_PW} Zeichen haben.`, "fehler");
+  if (pw !== wert("d-pw2")) return meldung("Die Passwörter stimmen nicht überein.", "fehler");
+  META.geraet = geraet;
+  const nutz = {schemaVersion: 1, exportedAt: jetzt(), device: geraet, appVersion: APP_VERSION, edition: EDITION,
+    teile: {finanzen: {geaendertAm: META.geaendertAm || null, daten: D}}};
+  const text = await warten("Datei wird verschlüsselt …", () => ffDateiSchreiben(JSON.stringify(nutz), pw));
+  const name = dateiname(geraet);
+  const datei = new File([text], name, {type: "application/octet-stream"});
+  let geteilt = false;
+  if (navigator.canShare && navigator.canShare({files: [datei]})) {
+    try { await navigator.share({files: [datei], title: "FinanceFlow-Datei", text: "Meine FinanceFlow-Datei für die Schuldenberatung"}); geteilt = true; }
+    catch (e) { if (e.name === "AbortError") return meldung("Senden abgebrochen – es wurde keine Datei erstellt.", "warn"); }
+  }
+  if (!geteilt) {
+    const url = URL.createObjectURL(datei), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  META.letzterExport = jetzt(); META.geaendert = false; await speichern();
+  zeige("datei");
+  meldung(geteilt ? `Datei „${esc(name)}“ erstellt und geteilt. Sag deiner Beratung jetzt das Passwort – getrennt, am besten am Telefon.`
+                  : `Datei „${esc(name)}“ wurde gespeichert (meist im Ordner „Downloads“ bzw. in „Dateien“). Schick sie deiner Beratung und sag ihr das Passwort getrennt.`, "ok");
+}
+
+function dateiOeffnen(beiEinrichtung) {
+  const w = $("#dateiwahl");
+  w.value = ""; w.accept = ".ffsync,application/octet-stream,application/json,*/*";
+  w.onchange = async () => {
+    const f = w.files[0]; if (!f) return;
+    const text = await f.text();
+    const pw = prompt(`Passwort für „${f.name}“:`);
+    if (pw === null) return;
+    let nutz;
+    try { nutz = JSON.parse(await warten("Datei wird entschlüsselt …", () => ffDateiLesen(text, pw))); }
+    catch (e) { return meldung(esc(e.message), "fehler"); }
+    const daten = nutz && nutz.teile && nutz.teile.finanzen && nutz.teile.finanzen.daten;
+    if (typeof nutz.schemaVersion !== "number" || nutz.schemaVersion > 1) return meldung("Die Datei stammt aus einer neueren Version. Bitte die aktuelle Seite von der Beratung holen.", "fehler");
+    if (!daten || typeof daten !== "object") return meldung("Die Datei enthält keine Finanzdaten.", "fehler");
+    const ks = (daten.Contact || []).filter(k => k.isActive !== 0).length, vs = (daten.Liability || []).filter(offen).length;
+    if (!confirm(`Datei von „${nutz.device || "?"}“, erstellt am ${zeitDe(nutz.exportedAt)}:\n${ks} Gläubiger, ${vs} offene Schulden.\n\nEinspielen? Sie ersetzt die Daten auf diesem Handy.`)) return;
+    if (!beiEinrichtung && META.geaendert && (schulden().length || glaeubiger().length) &&
+        !confirm("Achtung: Du hast seit deiner letzten Datei etwas geändert. Diese Änderungen gehen verloren.\n\nTrotzdem einspielen? (Sonst: Abbrechen, zuerst eine Datei erstellen und die Beratung anrufen.)")) return;
+    D = daten;
+    META = META || {};
+    const nameDatei = (D.Setting || []).find(s => s.key === "owner_name");
+    if (nameDatei && nameDatei.value) META.name = nameDatei.value;
+    META.letzterImport = jetzt(); META.geaendert = false;
+    if (beiEinrichtung && !KEY) { META.introGesehen = true; zeige("einrichten"); meldung("Datei gelesen. Leg jetzt ein Passwort für diese Seite fest.", "ok"); return; }
+    await speichern(); zeige("start"); meldung("Datei eingespielt.", "ok");
+  };
+  w.click();
+}
+
+/* ── Start ─────────────────────────────────────────────────────────────────── */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => zeige(b.dataset.s));
+$("#b-sperren").onclick = () => { KEY = null; D = null; META = null; zeige("sperre"); };
+$("#b-verbergen").onclick = () => { VERDECKT = !VERDECKT; document.body.classList.toggle("verdeckt", VERDECKT);
+  $("#b-verbergen").textContent = VERDECKT ? "◉ Zeigen" : "◎ Verbergen"; };
+if (!window.crypto || !crypto.subtle) {
+  inhalt.innerHTML = `<div class="hinweis fehler">Dieser Browser kann die Daten nicht verschlüsseln. Bitte die Seite in einem aktuellen Chrome, Safari, Firefox oder Samsung Internet öffnen – über https:// oder als Datei.</div>`;
+} else {
+  zeige(gespeichert() ? "sperre" : "einrichten");
+}
+</script>
+</body>
+</html>

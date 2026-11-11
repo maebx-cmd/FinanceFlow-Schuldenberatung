@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSI-Paket für FinanceFlow Schuldenberatung (WiX-3-Syntax, gebaut mit wixl aus msitools – läuft unter Linux,
+  z. B. im GitHub-Actions-Job „msi“ oder auf dem Raspberry Pi / VPS):
+
+    wixl -a x64 -D Version=1.0.0 -D Quelle=dist -o FinanceFlow-Schuldenberatung-1.0.0.msi installer/FinanceFlow-Schuldenberatung.wxs
+
+  Erwartet im Ordner „Quelle“:
+    FinanceFlow-Schuldenberatung.exe                 (PyInstaller, eine Datei, siehe build.bat)
+    FinanceFlow-Anleitung-Schuldner.pdf, FinanceFlow-Handbuch-Schuldenberatung.pdf, FinanceFlow-Schuldner.html
+    financeflow.ico
+
+  Installation: pro Computer nach „C:\Program Files\FinanceFlow Schuldenberatung“, Verknüpfungen im Startmenü und am
+  Desktop. Stille Verteilung durch die IT:  msiexec /i FinanceFlow-Schuldenberatung-1.0.0.msi /qn
+  Neue Version = höhere Version (-D Version=…) bei GLEICHEM UpgradeCode → ersetzt die alte automatisch.
+  Deinstallieren entfernt nur das Programm. Die Daten in %APPDATA%\FinanceFlow\Schuldenberatung bleiben erhalten.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="FinanceFlow Schuldenberatung" Language="1031" Codepage="1252" Version="$(var.Version)"
+           Manufacturer="FinanceFlow" UpgradeCode="D168DF2E-517A-489C-9891-7CE3F8C5A766">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" Languages="1031"
+             SummaryCodepage="1252" Description="FinanceFlow Schuldenberatung $(var.Version)"
+             Comments="Schulden erfassen und mit der Schuldenberatung abgleichen" Manufacturer="FinanceFlow" />
+    <Media Id="1" Cabinet="programm.cab" EmbedCab="yes" />
+    <MajorUpgrade DowngradeErrorMessage="Eine neuere Version von FinanceFlow Schuldenberatung ist bereits installiert." />
+
+    <Icon Id="FinanceFlowIcon" SourceFile="$(var.Quelle)/financeflow.ico" />
+    <Property Id="ARPPRODUCTICON" Value="FinanceFlowIcon" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="FinanceFlow Schuldenberatung">
+          <Directory Id="HILFEDIR" Name="hilfe" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="STARTMENUDIR" Name="FinanceFlow Schuldenberatung" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <DirectoryRef Id="INSTALLDIR">
+      <Component Id="Programm" Guid="6E0B1C0E-5C1A-4C0B-9E6B-3F2B7D8A1001" Win64="yes">
+        <File Id="ProgrammExe" Name="FinanceFlow-Schuldenberatung.exe" Source="$(var.Quelle)/FinanceFlow-Schuldenberatung.exe"
+              KeyPath="yes" />
+        <File Id="ProgrammIcon" Name="financeflow.ico" Source="$(var.Quelle)/financeflow.ico" />
+      </Component>
+    </DirectoryRef>
+    <DirectoryRef Id="HILFEDIR">
+      <Component Id="Hilfe" Guid="6E0B1C0E-5C1A-4C0B-9E6B-3F2B7D8A1002" Win64="yes">
+        <File Id="AnleitungSchuldner" Name="FinanceFlow-Anleitung-Schuldner.pdf"
+              Source="$(var.Quelle)/FinanceFlow-Anleitung-Schuldner.pdf" KeyPath="yes" />
+        <File Id="HandbuchBerater" Name="FinanceFlow-Handbuch-Schuldenberatung.pdf"
+              Source="$(var.Quelle)/FinanceFlow-Handbuch-Schuldenberatung.pdf" />
+        <File Id="SmartphoneVersion" Name="FinanceFlow-Schuldner.html" Source="$(var.Quelle)/FinanceFlow-Schuldner.html" />
+      </Component>
+    </DirectoryRef>
+    <DirectoryRef Id="STARTMENUDIR">
+      <Component Id="Startmenue" Guid="6E0B1C0E-5C1A-4C0B-9E6B-3F2B7D8A1003" Win64="yes">
+        <Shortcut Id="StartProgramm" Name="FinanceFlow Schuldenberatung" Description="Schulden erfassen und abgleichen"
+                  Target="[INSTALLDIR]FinanceFlow-Schuldenberatung.exe" WorkingDirectory="INSTALLDIR" Icon="FinanceFlowIcon" />
+        <Shortcut Id="StartAnleitung" Name="Anleitung für Schuldner (PDF)"
+                  Target="[HILFEDIR]FinanceFlow-Anleitung-Schuldner.pdf" WorkingDirectory="HILFEDIR" />
+        <Shortcut Id="StartHandbuch" Name="Handbuch für die Schuldenberatung (PDF)"
+                  Target="[HILFEDIR]FinanceFlow-Handbuch-Schuldenberatung.pdf" WorkingDirectory="HILFEDIR" />
+        <Shortcut Id="StartSmartphone" Name="Smartphone-Version für Schuldner (HTML)"
+                  Target="[HILFEDIR]FinanceFlow-Schuldner.html" WorkingDirectory="HILFEDIR" />
+        <RemoveFolder Id="StartmenueEntfernen" On="uninstall" />
+        <RegistryValue Root="HKLM" Key="Software\FinanceFlow\Schuldenberatung" Name="Startmenue" Type="integer" Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="Desktop" Guid="6E0B1C0E-5C1A-4C0B-9E6B-3F2B7D8A1004" Win64="yes">
+        <Shortcut Id="DesktopProgramm" Name="FinanceFlow Schuldenberatung" Description="Schulden erfassen und abgleichen"
+                  Target="[INSTALLDIR]FinanceFlow-Schuldenberatung.exe" WorkingDirectory="INSTALLDIR" Icon="FinanceFlowIcon" />
+        <RegistryValue Root="HKLM" Key="Software\FinanceFlow\Schuldenberatung" Name="Desktop" Type="integer" Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="Komplett" Title="FinanceFlow Schuldenberatung" Level="1">
+      <ComponentRef Id="Programm" />
+      <ComponentRef Id="Hilfe" />
+      <ComponentRef Id="Startmenue" />
+      <ComponentRef Id="Desktop" />
+    </Feature>
+  </Product>
+</Wix>

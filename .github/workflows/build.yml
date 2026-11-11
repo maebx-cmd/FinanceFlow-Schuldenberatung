@@ -1,0 +1,75 @@
+name: Build EXE und MSI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller pytest lxml
+      - name: Tests
+        run: python -m pytest -q tests
+      - name: EXE bauen
+        run: >
+          pyinstaller --noconfirm --clean --onefile --windowed
+          --name FinanceFlow-Schuldenberatung
+          --icon installer/financeflow.ico
+          --add-data "hilfe;hilfe"
+          --add-data "web;web"
+          --collect-submodules app
+          --collect-all sqlcipher3
+          main.py
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinanceFlow-Schuldenberatung-exe
+          path: dist/FinanceFlow-Schuldenberatung.exe
+
+  msi:
+    needs: exe
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: FinanceFlow-Schuldenberatung-exe
+          path: dist
+      - name: wixl installieren
+        run: sudo apt-get update -q && sudo apt-get install -y -q wixl
+      - name: MSI bauen
+        run: |
+          VERSION=$(python3 -c "import app; print(app.APP_VERSION)")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          sh tools/msi_bauen.sh dist "$VERSION"
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: FinanceFlow-Schuldenberatung-msi
+          path: |
+            dist/FinanceFlow-Schuldenberatung-*.msi
+            dist/*.pdf
+            dist/FinanceFlow-Schuldner.html
+      - name: Release (bei Tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/FinanceFlow-Schuldenberatung-*.msi
+            dist/FinanceFlow-Schuldenberatung.exe
+            dist/*.pdf
+            dist/FinanceFlow-Schuldner.html
